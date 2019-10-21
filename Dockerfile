@@ -23,7 +23,7 @@ RUN adduser --disabled-password \
 COPY . ${HOME}
 
 RUN echo "source /usr/local/bin/thisroot.sh" >> $HOME/.bashrc 
-RUN pip install jupyter joblib requests tqdm shapely descartes
+RUN pip install jupyter joblib requests tqdm shapely descartes 
 
 USER root
 RUN chown -R ${NB_UID} ${HOME}

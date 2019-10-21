@@ -8,6 +8,5 @@ cat ${HOME}/.bashrc
 whoami
 which jupyter
 source /usr/local/bin/thisroot.sh
-source ${HOME}/HistFitter/setup.sh
 echo done
 eval "$@"
