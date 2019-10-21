@@ -54,13 +54,13 @@ def main(args,inputDataList):
 					df['fID'] = filename
 					databaseListTheoryDown.append(df)
 			except:
-				print ">>> Can't find %s"%filename.replace("Nominal","Down")
+				print(">>> Can't find %s"%filename.replace("Nominal","Down"))
 
 		if "Nominal" in fID and not args.ignoreUL:
 
 			try:
 				with open(filename.replace("fixSigXSecNominal_hypotest","upperlimit")) as data_file:
-					print ">>> >>> Adding input file for upper limits"
+					print(">>> >>> Adding input file for upper limits")
 					data = json.load(data_file)
 					df = pd.DataFrame(data, columns=data[0].keys())
 					df['fID'] = filename
@@ -76,7 +76,7 @@ def main(args,inputDataList):
 		databaseUpperLimit = pd.concat(databaseListUpperLimit, ignore_index=True)
 
 	if args.debug:
-		print ">>> Full database has length: %d"%len(database)
+		print(">>> Full database has length: %d"%len(database))
 
 	# cleaning up the bad stuff!
 	database = database[(database.CLsexp != 0) & database.failedstatus==0]
@@ -84,12 +84,12 @@ def main(args,inputDataList):
 	try:
 		listOfModels = database[args.modelDef.split(",")].drop_duplicates()
 	except:
-		print ">>> Problem! The model definition variables don't seem to exist! Quitting."
+		print (">>> Problem! The model definition variables don't seem to exist! Quitting.")
 		sys.exit(1)
 
 	if args.debug:
-		print ">>> ... List of Signal Models:"
-		print listOfModels
+		print (">>> ... List of Signal Models:")
+		print (listOfModels)
 
 	outputDB = doTheMuxing(args,database,listOfModels)
 

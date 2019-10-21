@@ -236,7 +236,7 @@ def addValuesToDict(args, inputDict, function, numberOfPoints = 100, value = 0):
 			fakeMirroredSignalPoint = rotate(closestPointOnLine, signalPoint)
 			tmpDict = copy.deepcopy(inputDictCopy[signalPoint])
 			for key in tmpDict:
-				if isinstance(tmpDict[key], (int, long, float)):
+				if isinstance(tmpDict[key], (int, float)):
 					tmpDict[key] *= -1*np.sign(tmpDict[key])
 			inputDictCopy[fakeMirroredSignalPoint] = tmpDict
 
@@ -257,8 +257,8 @@ def interpolateSurface(args, modelDict = {}, interpolationFunction = "linear", u
 
 	modelPoints = modelDict.keys()
 	modelPointsValues = modelDict.values()
-	x0 =   list( zip( *modelPoints )[0] )
-	y0 =   list( zip( *modelPoints )[1] )
+	x0 =   list( list(zip( *modelPoints ))[0] )
+	y0 =   list( list(zip( *modelPoints ))[1] )
 
 	zValues = {} # entry x points
 	x={} # entry x points
@@ -376,29 +376,6 @@ def createTGraph2DFromMeshGrid(x,y,z):
 
 	return createTGraph2DFromArrays( xList, yList, zList )
 
-def createTGraphFromDict(args,modelDict,myName,listOfFIDs=None):
-	"""Given the results dictionary, can make a TGraph2D of values. Has support for fID as strings."""
-
-	modelPoints = modelDict.keys()
-	modelPointsValues = modelDict.values()
-
-	outputGraph = ROOT.TGraph2D(len(modelPoints))
-	outputGraph.SetName(myName)
-	for imodel,model in enumerate(modelPoints):
-		if listOfFIDs!=None:
-			try:
-				outputGraph.SetPoint(imodel, model[0], model[1], listOfFIDs.index( modelDict[model][myName] ) )
-			except:
-				print (">>> WARNING: Model point has a SR not in the list for some reason! Skipping, but check for problems in input JSON!")
-				continue
-		else:
-			value = modelDict[model][myName] if (args.noSig or myName in ["upperLimit","expectedUpperLimit"]) else ROOT.RooStats.SignificanceToPValue(modelDict[model][myName])
-			outputGraph.SetPoint(imodel, model[0], model[1], value )
-
-	return outputGraph
-
-
-
 def truncateSignificances(args,modelDict,sigmax=5):
 	"""Truncates significance to sigmax option"""
 	listOfContours,_,_,_,_ = make_from_args(args)
@@ -419,7 +396,7 @@ def getContourPoints(xi,yi,zi,level ):
 
 	contourList = []
 
-	for i in xrange( len(contour.get_paths() ) ):
+	for i in range( len(contour.get_paths() ) ):
 		v = contour.get_paths()[i].vertices
 
 		x = v[:,0]
@@ -444,7 +421,7 @@ def createBandFromContours(args,contour1,contour2=None):
 
 		outputGraph = ROOT.TGraph(outputSize)
 		tmpx, tmpy = ROOT.Double(), ROOT.Double()
-		for iPoint in xrange(contour2.GetN()):
+		for iPoint in range(contour2.GetN()):
 			contour2.GetPoint(iPoint,tmpx,tmpy)
 			outputGraph.SetPoint(iPoint,tmpx,tmpy)
 
@@ -452,7 +429,7 @@ def createBandFromContours(args,contour1,contour2=None):
 			contour2.GetPoint(0,tmpx,tmpy)
 			outputGraph.SetPoint(contour2.GetN()+1, tmpx,tmpy)
 
-		for iPoint in xrange(contour1.GetN()):
+		for iPoint in range(contour1.GetN()):
 			contour1.GetPoint(contour1.GetN()-1-iPoint,tmpx,tmpy)
 			outputGraph.SetPoint(contour2.GetN()+pointOffset+iPoint,tmpx,tmpy)
 
