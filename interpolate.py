@@ -121,24 +121,18 @@ def processInputFile(args,inputData, label = ""):
 			print (">>> ")
 			for icurve,curve1 in enumerate(outputGraphs[listOfContours_OneSigma[1] ]):
 				band_1s = createBandFromContours(args, contour1 = curve1 )
-				band_1s.SetFillColorAlpha(ROOT.TColor.GetColor("#ffd700"), 0.75)
 				outputs["Band_1s_%d"%icurve] = band_1s
 		for icurve,(curve1,curve2) in enumerate(zip(outputGraphs[listOfContours_OneSigma[0] ],outputGraphs[listOfContours_OneSigma[1] ]) ):
 			band_1s = createBandFromContours(args, contour1 =  curve1, contour2 = curve2 )
-			band_1s.SetFillColorAlpha(ROOT.TColor.GetColor("#ffd700"), 0.75)
 			outputs["Band_1s_%d"%icurve] = band_1s
 		for icurve,(curve1,curve2) in enumerate(zip(outputGraphs[listOfContours_TwoSigma[0] ],outputGraphs[listOfContours_TwoSigma[1] ]) ):
 			band_2s = createBandFromContours(args, contour1 =  curve1, contour2 = curve2 )
-			band_2s.SetFillColorAlpha(ROOT.TColor.GetColor("#115000"), 0.5)
 			outputs["Band_2s_%d"%icurve] = band_2s
 
 
 	for icurve,obsCurve in enumerate(outputGraphs[observedContour]):
-		obsCurve.SetLineWidth(2)
-		obsCurve.SetLineColorAlpha(ROOT.TColor.GetColor("#800000"), 0.9 )
 		outputs["Obs_%s%s"%(icurve,label)] = obsCurve
 	for icurve,expCurve in enumerate(outputGraphs[expectedContour]):
-		expCurve.SetLineStyle(7)
 		outputs["Exp_%s%s"%(icurve,label)] = expCurve
 
 	return outputs
@@ -340,10 +334,6 @@ def interpolateSurface(args, modelDict = {}, interpolationFunction = "linear", u
 			# Undo the scaling from above to get back to original units
 			xymeshgrid[1] = xymeshgrid[1] / yScaling
 
-
-			if outputSurfaceTGraph:
-				return createTGraph2DFromMeshGrid(xymeshgrid[0],xymeshgrid[1],ZI)
-
 			# Turn this surface into contours!
 			contourList = getContourPoints(xymeshgrid[0],xymeshgrid[1],ZI, args.level)
 
@@ -357,24 +347,6 @@ def interpolateSurface(args, modelDict = {}, interpolationFunction = "linear", u
 			graphs[whichContour] = sorted(graphs[whichContour], key=lambda g: g.Integral() , reverse=True)
 
 		return graphs
-
-def createTGraph2DFromArrays(x,y,z):
-	"""Helper function to quickly create a TGraph2D from three python iterables"""
-	from array import array
-	return ROOT.TGraph2D(len(x),
-		array('f',x),
-		array('f',y),
-		array('f',z) )
-
-def createTGraph2DFromMeshGrid(x,y,z):
-
-	xList = x.flatten().tolist()
-	yList = y.flatten().tolist()
-	zList = z.flatten().tolist()
-
-	zList = [1e-3 if z<1e-3 else z for z in zList]
-
-	return createTGraph2DFromArrays( xList, yList, zList )
 
 def truncateSignificances(args,modelDict,sigmax=5):
 	"""Truncates significance to sigmax option"""
@@ -404,6 +376,7 @@ def getContourPoints(xi,yi,zi,level ):
 
 		contourList.append( (x,y) )
 
+	plt.close()
 	del f
 	return contourList
 
@@ -439,9 +412,6 @@ def createBandFromContours(args,contour1,contour2=None):
 
 		contour2.GetPoint(0,tmpx,tmpy)
 		outputGraph.SetPoint(contour1.GetN()+contour2.GetN()+pointOffset,tmpx,tmpy)
-
-	outputGraph.SetFillStyle(1001);
-	outputGraph.SetLineWidth(1)
 
 	return outputGraph
 
