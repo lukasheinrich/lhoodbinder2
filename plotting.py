@@ -115,6 +115,10 @@ def make_plot(ax, dataList, **kwargs):
         if r is None:
             return
 
+        if not 'Band_1s_0' in r:
+            return
+
+
         x = r['Band_1s_0'][:,0]
         y = r['Band_1s_0'][:,1]
         
