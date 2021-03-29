@@ -1,7 +1,5 @@
 # JSON Likelihoods for ATLAS SUSY sbottom multi-b analysis
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/lukasheinrich/lhoodbinder2/master?filepath=PlotContour.ipynb)
-
 The JSON likelihoods are serialized for each signal region: [RegionA](RegionA), [RegionB](RegionB), and [RegionC](RegionC). This is done by providing a background-only workspace containing the signal/control/validation channels for each region at `$region/BkgOnly.json` as well as patch files for each mass point on the signal phase-space explored in the analysis.
 
 Each [jsonpatch](http://jsonpatch.com/) file follows the format `$region/patch.sbottom_msb_mn2_mn1.json` where `msb` is the mass of the sbottom squark, `mn2` is the mass of the second-lightest neutralino, and `mn1` is the mass of the lightest supersymmetric particle (LSP).

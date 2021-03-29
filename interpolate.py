@@ -21,13 +21,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import ROOT, json, argparse, math, sys, os, pickle, copy
-
-ROOT.gROOT.SetBatch()
+import json, argparse, math, sys, os, pickle, copy
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
+import scipy.stats
+import ctypes
+from shapely.geometry import Polygon
 
 def make_from_args(args):
 	## If I need to use scipy, please let me have scipy. I'll even help you out!
@@ -105,7 +106,7 @@ def processInputFile(args,inputData, label = ""):
 	# Step 2 - Interpolate the fit results
 
 
-	outputGraphs = interpolateSurface( args = args, modelDict = resultsDict , interpolationFunction =  args.interpolation , useROOT = args.useROOT , outputSurface=True if label=="" else False)
+	outputArrays = interpolateSurface( args = args, modelDict = resultsDict , interpolationFunction =  args.interpolation , useROOT = args.useROOT , outputSurface=True if label=="" else False)
 
 	############################################################
 	# Step 4 - Make pretty curves (and bands) or try to...
@@ -113,26 +114,25 @@ def processInputFile(args,inputData, label = ""):
 	outputs = {}
 
 	if not args.ignoreUncertainty and label=="":
-		if len(outputGraphs[listOfContours_OneSigma[0] ])==0 and len(outputGraphs[listOfContours_OneSigma[1] ])>0:
+		if len(outputArrays[listOfContours_OneSigma[0] ])==0 and len(outputArrays[listOfContours_OneSigma[1] ])>0:
 			print (">>>")
 			print (">>> WARNING: You don't have +1 sigma sensitivity,")
 			print (">>> ... but you do have -1 sigma reach. Making a ")
 			print (">>> ... +/-1 sigma band from only the -1 side.")
 			print (">>> ")
-			for icurve,curve1 in enumerate(outputGraphs[listOfContours_OneSigma[1] ]):
-				band_1s = createBandFromContours(args, contour1 = curve1 )
-				outputs["Band_1s_%d"%icurve] = band_1s
-		for icurve,(curve1,curve2) in enumerate(zip(outputGraphs[listOfContours_OneSigma[0] ],outputGraphs[listOfContours_OneSigma[1] ]) ):
+
+			
+		for icurve,(curve1,curve2) in enumerate(zip(outputArrays[listOfContours_OneSigma[0] ],outputArrays[listOfContours_OneSigma[1] ]) ):
 			band_1s = createBandFromContours(args, contour1 =  curve1, contour2 = curve2 )
 			outputs["Band_1s_%d"%icurve] = band_1s
-		for icurve,(curve1,curve2) in enumerate(zip(outputGraphs[listOfContours_TwoSigma[0] ],outputGraphs[listOfContours_TwoSigma[1] ]) ):
+		for icurve,(curve1,curve2) in enumerate(zip(outputArrays[listOfContours_TwoSigma[0] ],outputArrays[listOfContours_TwoSigma[1] ]) ):
 			band_2s = createBandFromContours(args, contour1 =  curve1, contour2 = curve2 )
 			outputs["Band_2s_%d"%icurve] = band_2s
 
 
-	for icurve,obsCurve in enumerate(outputGraphs[observedContour]):
+	for icurve,obsCurve in enumerate(outputArrays[observedContour]):
 		outputs["Obs_%s%s"%(icurve,label)] = obsCurve
-	for icurve,expCurve in enumerate(outputGraphs[expectedContour]):
+	for icurve,expCurve in enumerate(outputArrays[expectedContour]):
 		outputs["Exp_%s%s"%(icurve,label)] = expCurve
 
 	return outputs
@@ -173,7 +173,7 @@ def harvestToDict(args, inputJSON, tmpListOfContours = None ):
 		sampleParams = tuple(sampleParamsList)
 
 		if not math.isinf(float(sample[expectedContour])) :
-			tmpList = [float(sample["%s"%x]) if (args.noSig or x in ["upperLimit","expectedUpperLimit"]) else ROOT.RooStats.PValueToSignificance( float(sample["%s"%x]) ) for x in tmpListOfContours]
+			tmpList = [float(sample["%s"%x]) if (args.noSig or x in ["upperLimit","expectedUpperLimit"]) else scipy.stats.norm.ppf( 1 - float(sample["%s"%x]) ) for x in tmpListOfContours]
 			modelDict[sampleParams] = dict(zip(tmpListOfContours,  tmpList ) )
 			if "fID" in sample:
 				modelDict[sampleParams]["fID"] = sample["fID"]
@@ -186,7 +186,7 @@ def harvestToDict(args, inputJSON, tmpListOfContours = None ):
 				modelDict[sampleParams] = dict(zip(tmpListOfContours,  [args.sigmax for x in tmpListOfContours] ) )
 				modelDict[sampleParams]["fID"] = ""
 		if(args.debug):
-			print (sampleParams, float(sample[observedContour]), float(sample[expectedContour]) if args.noSig else ROOT.RooStats.PValueToSignificance( float(sample[observedContour])     ))
+			print (sampleParams, float(sample[observedContour]), float(sample[expectedContour]) if args.noSig else scipy.stats.norm.ppf( 1- float(sample[observedContour])     ))
 
 
 
@@ -201,8 +201,7 @@ def addValuesToDict(args, inputDict, function, numberOfPoints = 100, value = 0):
 	lowerLimit = min(tmpListOfXValues)
 	upperLimit = max(tmpListOfXValues)
 
-	forbiddenFunction = ROOT.TF1("forbiddenFunction${}".format(value),args.forbiddenFunction,lowerLimit,upperLimit)
-
+	forbiddenFunction_Lambda = lambda x: eval(args.forbiddenFunction)
 	if value == "mirror":
 		from scipy.spatial.distance import cdist
 		def closest_point(pt, others):
@@ -221,7 +220,7 @@ def addValuesToDict(args, inputDict, function, numberOfPoints = 100, value = 0):
 
 		forbiddenLineArray = []
 		for xValue in [lowerLimit + x*(upperLimit-lowerLimit)/float(numberOfPoints*100) for x in range(numberOfPoints*100)]:
-			forbiddenLineArray.append( ( xValue,forbiddenFunction.Eval(xValue) ) )
+			forbiddenLineArray.append( ( xValue,forbiddenFunction_Lambda(xValue) ) )
 
 		# now to loop over entries in the inputDict. rotate them about this closest point on the forbidden line
 		for signalPoint in inputDict:
@@ -238,7 +237,7 @@ def addValuesToDict(args, inputDict, function, numberOfPoints = 100, value = 0):
 
 	else:
 		for xValue in [lowerLimit + x*(upperLimit-lowerLimit)/float(numberOfPoints) for x in range(numberOfPoints)]:
-			inputDict[(xValue,forbiddenFunction.Eval(xValue))] = dict(zip(listOfContours,  [value for x in listOfContours] ) )
+			inputDict[(xValue,forbiddenFunction_Lambda(xValue))] = dict(zip(listOfContours,  [value for x in listOfContours] ) )
 
 	return inputDict
 
@@ -259,7 +258,7 @@ def interpolateSurface(args, modelDict = {}, interpolationFunction = "linear", u
 	y={} # entry x points
 
 	graphs = {}
-
+	array_data = {}
 	for whichContour in tmpListOfContours:
 		zValues[whichContour] = [ tmpEntry[whichContour] for tmpEntry in modelPointsValues]
 		x[whichContour]       = [ a for a in x0 ];
@@ -337,16 +336,19 @@ def interpolateSurface(args, modelDict = {}, interpolationFunction = "linear", u
 			# Turn this surface into contours!
 			contourList = getContourPoints(xymeshgrid[0],xymeshgrid[1],ZI, args.level)
 
-			graphs[whichContour] = []
+			array_data[whichContour] = []
 			for contour in contourList:
-				graph = ROOT.TGraph(len(contour[0]), contour[0].flatten('C'), contour[1].flatten('C') )
-				if graph.Integral() > args.areaThreshold:
-					graphs[whichContour].append(graph)
+				adata = np.array([
+						contour[0].flatten('C'),
+						contour[1].flatten('C')
+				]).T
+				if (len(adata)) > 2 and Polygon(adata).area > args.areaThreshold:
+					array_data[whichContour].append(adata)
 
 			# Let's sort output graphs by area so that the band construction later is more likely to get the right pairs
-			graphs[whichContour] = sorted(graphs[whichContour], key=lambda g: g.Integral() , reverse=True)
+			array_data[whichContour] = sorted(array_data[whichContour], key=lambda g: Polygon(g).area , reverse=True)
 
-		return graphs
+		return array_data
 
 def truncateSignificances(args,modelDict,sigmax=5):
 	"""Truncates significance to sigmax option"""
@@ -382,38 +384,25 @@ def getContourPoints(xi,yi,zi,level ):
 
 def createBandFromContours(args,contour1,contour2=None):
 
-	if not contour2:
-		outputGraph = contour1
+	output_data = []
+
+
+	if contour2 is None:
+		raise RuntimeError
 	else:
-		outputSize = contour1.GetN()+contour2.GetN()+1
-
-		pointOffset = 0
-		if args.closedBands:
-			outputSize += 2
-			pointOffset = 1
-
-		outputGraph = ROOT.TGraph(outputSize)
-		tmpx, tmpy = ROOT.Double(), ROOT.Double()
-		for iPoint in range(contour2.GetN()):
-			contour2.GetPoint(iPoint,tmpx,tmpy)
-			outputGraph.SetPoint(iPoint,tmpx,tmpy)
+		output_data += contour2.tolist()
 
 		if args.closedBands:
-			contour2.GetPoint(0,tmpx,tmpy)
-			outputGraph.SetPoint(contour2.GetN()+1, tmpx,tmpy)
+			output_data.append(contour2[0])
 
-		for iPoint in range(contour1.GetN()):
-			contour1.GetPoint(contour1.GetN()-1-iPoint,tmpx,tmpy)
-			outputGraph.SetPoint(contour2.GetN()+pointOffset+iPoint,tmpx,tmpy)
+		output_data += list(reversed(contour1.tolist()))
 
 		if args.closedBands:
-			contour1.GetPoint(contour1.GetN()-1,tmpx,tmpy)
-			outputGraph.SetPoint(contour1.GetN()+contour2.GetN(), tmpx,tmpy)
+			output_data.append(contour1[-1])
 
-		contour2.GetPoint(0,tmpx,tmpy)
-		outputGraph.SetPoint(contour1.GetN()+contour2.GetN()+pointOffset,tmpx,tmpy)
+		output_data.append(contour2[0])
 
-	return outputGraph
+	return np.array(output_data)
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()

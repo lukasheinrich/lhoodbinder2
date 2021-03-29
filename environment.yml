@@ -15,7 +15,5 @@ dependencies:
   - dill
   - pandas
   - partd
-  - bokeh
-  - dask
-  - root
   - scipy
+  - aiohttp
